@@ -1,0 +1,37 @@
+# PowerShell Module Build Artifacts
+*.zip
+publish/
+
+# Test Results
+Results/*.xml
+Results/*.html
+*.TestResults.xml
+
+# Code Coverage
+coverage/
+*.coverage.xml
+
+# PowerShell Gallery Publishing
+*.nupkg
+
+# IDE and Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Windows
+desktop.ini
+$RECYCLE.BIN/
+
+# Logs
+*.log
+logs/
+
+# Temporary Files
+temp/
+tmp/
+*.tmp
