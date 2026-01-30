@@ -8,6 +8,8 @@ PowerShell module for managing ReFS (Resilient File System) stream snapshots on 
 - **List snapshots**: Query existing snapshots with wildcard support
 - **Delete snapshots**: Remove snapshots with confirmation safeguards
 - **Compare snapshots**: Track changes between snapshot and current state
+- **Schedule automation**: Automated snapshots via Windows Task Scheduler
+- **Retention policies**: Automatic cleanup of old snapshots
 - **Pipeline support**: Full pipeline integration for bulk operations
 - **Type safety**: Strong parameter validation and type checking
 - **Error handling**: Comprehensive error handling and ReFS volume validation
@@ -53,6 +55,9 @@ Compare-RefsSnapshot -Path D:\Data\database.dat -Name "BeforeUpdate"
 
 # Delete a snapshot
 Remove-RefsSnapshot -Path D:\Data\database.dat -Name "BeforeUpdate" -Force
+
+# Schedule daily snapshots with 30-day retention
+Register-RefsSnapshotSchedule -Path D:\Data\database.dat -Interval Daily
 ```
 
 ## Cmdlets
@@ -140,24 +145,101 @@ $totalBytes = ($changes | Measure-Object -Property Length -Sum).Sum
 Write-Host "Total bytes changed: $totalBytes"
 ```
 
-## Advanced Usage
+### Register-RefsSnapshotSchedule
 
-### Automated Backup with Retention
+Creates automated snapshot schedules using Windows Task Scheduler.
 
 ```powershell
-function Backup-WithRetention {
-    param($Path, $RetentionDays = 7)
+Register-RefsSnapshotSchedule -Path <String> -Interval <String> [-At <DateTime>] [-RetentionDays <Int>] [-RetentionCount <Int>] [-NoRetention] [-WhatIf] [-Confirm]
+```
 
-    # Create new snapshot
-    $name = "Auto_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
-    New-RefsSnapshot -Path $Path -Name $name
+**Examples:**
 
-    # Remove old snapshots
-    $cutoff = (Get-Date).AddDays(-$RetentionDays).ToString('yyyyMMdd')
-    Get-RefsSnapshot -Path $Path -Name "Auto_*" |
-        Where-Object { $_.SnapshotName -lt "Auto_$cutoff" } |
-        Remove-RefsSnapshot -Force
-}
+```powershell
+# Daily snapshots at 3 AM with 30-day retention (default)
+Register-RefsSnapshotSchedule -Path D:\Data\database.dat -Interval Daily
+
+# Hourly snapshots, keep last 24
+Register-RefsSnapshotSchedule -Path D:\Data\file.dat -Interval Hourly -RetentionCount 24
+
+# Weekly snapshots on Mon/Fri, no automatic cleanup
+Register-RefsSnapshotSchedule -Path D:\Data\archive.dat -Interval Weekly -DaysOfWeek Monday,Friday -NoRetention
+```
+
+### Get-RefsSnapshotSchedule
+
+Lists scheduled snapshot tasks.
+
+```powershell
+Get-RefsSnapshotSchedule [-TaskName <String>] [-Path <String>]
+```
+
+**Examples:**
+
+```powershell
+# List all scheduled tasks
+Get-RefsSnapshotSchedule
+
+# Find schedule for specific file
+Get-RefsSnapshotSchedule -Path D:\Data\database.dat
+
+# Get specific task details
+Get-RefsSnapshotSchedule -TaskName "RefsSnapshot_database.dat_Daily"
+```
+
+### Update-RefsSnapshotSchedule
+
+Modifies existing scheduled tasks.
+
+```powershell
+Update-RefsSnapshotSchedule -TaskName <String> [-Interval <String>] [-RetentionDays <Int>] [-Enabled <Bool>] [-WhatIf] [-Confirm]
+```
+
+**Examples:**
+
+```powershell
+# Change retention to 60 days
+Update-RefsSnapshotSchedule -TaskName "RefsSnapshot_database.dat_Daily" -RetentionDays 60
+
+# Change to hourly snapshots
+Update-RefsSnapshotSchedule -TaskName "RefsSnapshot_database.dat_Daily" -Interval Hourly
+
+# Disable temporarily
+Update-RefsSnapshotSchedule -TaskName "RefsSnapshot_database.dat_Daily" -Enabled $false
+```
+
+### Unregister-RefsSnapshotSchedule
+
+Removes scheduled snapshot tasks.
+
+```powershell
+Unregister-RefsSnapshotSchedule -TaskName <String> [-Force] [-WhatIf] [-Confirm]
+```
+
+**Examples:**
+
+```powershell
+# Remove with confirmation
+Unregister-RefsSnapshotSchedule -TaskName "RefsSnapshot_database.dat_Daily"
+
+# Remove all schedules for a file
+Get-RefsSnapshotSchedule -Path D:\Data\database.dat | Unregister-RefsSnapshotSchedule -Force
+```
+
+## Advanced Usage
+
+### Scheduled Snapshots with Retention
+
+```powershell
+# Schedule daily snapshots with automatic 30-day retention
+Register-RefsSnapshotSchedule -Path D:\Data\database.dat -Interval Daily -RetentionDays 30
+
+# Multi-tier strategy: hourly for recent, daily for long-term
+Register-RefsSnapshotSchedule -Path D:\Data\active.dat -Interval Hourly -RetentionCount 24
+Register-RefsSnapshotSchedule -Path D:\Data\active.dat -Interval Daily -RetentionDays 90 -TaskName "DailyLongTerm"
+
+# Monitor scheduled snapshots
+Get-RefsSnapshotSchedule | Format-Table TaskName, FilePath, Interval, NextRunTime
 ```
 
 ### Bulk Operations
@@ -199,6 +281,7 @@ Note: Integration tests require a ReFS volume and are skipped by default.
 See the `Examples\` directory for more scenarios:
 - `BasicUsage.ps1` - Common operations
 - `AdvancedScenarios.ps1` - Complex workflows and automation
+- `ScheduledSnapshots.ps1` - Automated scheduling and retention policies
 
 ## Architecture
 

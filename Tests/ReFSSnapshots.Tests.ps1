@@ -193,3 +193,143 @@ Describe "Integration Tests" -Skip {
         }
     }
 }
+
+Describe "Register-RefsSnapshotSchedule" {
+    Context "Parameter Validation" {
+        It "Should have mandatory Path parameter" {
+            (Get-Command Register-RefsSnapshotSchedule).Parameters['Path'].Attributes.Mandatory | Should -Be $true
+        }
+
+        It "Should have mandatory Interval parameter" {
+            (Get-Command Register-RefsSnapshotSchedule).Parameters['Interval'].Attributes.Mandatory | Should -Be $true
+        }
+
+        It "Should validate Interval values" {
+            $param = (Get-Command Register-RefsSnapshotSchedule).Parameters['Interval']
+            $param.Attributes.ValidValues | Should -Contain 'Daily'
+            $param.Attributes.ValidValues | Should -Contain 'Hourly'
+            $param.Attributes.ValidValues | Should -Contain 'Weekly'
+        }
+
+        It "Should support ShouldProcess" {
+            (Get-Command Register-RefsSnapshotSchedule).Parameters.ContainsKey('WhatIf') | Should -Be $true
+        }
+
+        It "Should have RetentionDays with range validation" {
+            $param = (Get-Command Register-RefsSnapshotSchedule).Parameters['RetentionDays']
+            $param.Attributes.ValidValues | Should -BeNullOrEmpty
+            # Has ValidateRange attribute
+            $param.Attributes | Where-Object { $_.TypeId.Name -eq 'ValidateRangeAttribute' } | Should -Not -BeNullOrEmpty
+        }
+
+        It "Should have NoRetention switch" {
+            $param = (Get-Command Register-RefsSnapshotSchedule).Parameters['NoRetention']
+            $param.SwitchParameter | Should -Be $true
+        }
+    }
+}
+
+Describe "Get-RefsSnapshotSchedule" {
+    Context "Parameter Validation" {
+        It "Should have optional TaskName parameter" {
+            $param = (Get-Command Get-RefsSnapshotSchedule).Parameters['TaskName']
+            $param.Attributes.Mandatory | Should -Be $false
+        }
+
+        It "Should have optional Path parameter" {
+            $param = (Get-Command Get-RefsSnapshotSchedule).Parameters['Path']
+            $param.Attributes.Mandatory | Should -Be $false
+        }
+
+        It "Should output RefsSnapshotSchedule type" {
+            (Get-Command Get-RefsSnapshotSchedule).OutputType.Name | Should -Contain 'RefsSnapshotSchedule'
+        }
+
+        It "Should support pipeline input" {
+            (Get-Command Get-RefsSnapshotSchedule).Parameters['TaskName'].Attributes.ValueFromPipeline | Should -Be $true
+        }
+    }
+}
+
+Describe "Update-RefsSnapshotSchedule" {
+    Context "Parameter Validation" {
+        It "Should have mandatory TaskName parameter" {
+            (Get-Command Update-RefsSnapshotSchedule).Parameters['TaskName'].Attributes.Mandatory | Should -Be $true
+        }
+
+        It "Should support ShouldProcess" {
+            (Get-Command Update-RefsSnapshotSchedule).Parameters.ContainsKey('WhatIf') | Should -Be $true
+        }
+
+        It "Should have optional Interval parameter" {
+            $param = (Get-Command Update-RefsSnapshotSchedule).Parameters['Interval']
+            $param.Attributes.Mandatory | Should -Be $false
+        }
+
+        It "Should have Enabled parameter" {
+            $param = (Get-Command Update-RefsSnapshotSchedule).Parameters['Enabled']
+            $param.ParameterType | Should -Be ([bool])
+        }
+    }
+}
+
+Describe "Unregister-RefsSnapshotSchedule" {
+    Context "Parameter Validation" {
+        It "Should have mandatory TaskName parameter" {
+            (Get-Command Unregister-RefsSnapshotSchedule).Parameters['TaskName'].Attributes.Mandatory | Should -Be $true
+        }
+
+        It "Should support ShouldProcess with High impact" {
+            $cmd = Get-Command Unregister-RefsSnapshotSchedule
+            $cmd.Parameters.ContainsKey('WhatIf') | Should -Be $true
+            $cmd.Parameters.ContainsKey('Confirm') | Should -Be $true
+        }
+
+        It "Should have Force parameter" {
+            (Get-Command Unregister-RefsSnapshotSchedule).Parameters.ContainsKey('Force') | Should -Be $true
+        }
+
+        It "Should support pipeline input" {
+            (Get-Command Unregister-RefsSnapshotSchedule).Parameters['TaskName'].Attributes.ValueFromPipeline | Should -Be $true
+        }
+    }
+}
+
+Describe "Scheduling Helper Functions" {
+    Context "New-RefsScheduledTaskScript" {
+        It "Should generate script with retention" {
+            $script = New-RefsScheduledTaskScript -Path "C:\test.dat" -RetentionDays 30
+            $script | Should -Match "New-RefsSnapshot"
+            $script | Should -Match "AddDays\(-30\)"
+        }
+
+        It "Should generate script without retention" {
+            $script = New-RefsScheduledTaskScript -Path "C:\test.dat" -RetentionDays 0
+            $script | Should -Not -Match "AddDays"
+        }
+
+        It "Should support retention by count" {
+            $script = New-RefsScheduledTaskScript -Path "C:\test.dat" -RetentionCount 10
+            $script | Should -Match "Select-Object -Skip 10"
+        }
+    }
+
+    Context "ConvertTo-ScheduledTaskTrigger" {
+        It "Should create Daily trigger" {
+            $trigger = ConvertTo-ScheduledTaskTrigger -Interval Daily -At (Get-Date "3:00 AM")
+            $trigger | Should -Not -BeNullOrEmpty
+            $trigger.CimClass.CimClassName | Should -Be 'MSFT_TaskDailyTrigger'
+        }
+
+        It "Should create Weekly trigger" {
+            $trigger = ConvertTo-ScheduledTaskTrigger -Interval Weekly -DaysOfWeek Monday,Friday
+            $trigger | Should -Not -BeNullOrEmpty
+            $trigger.CimClass.CimClassName | Should -Be 'MSFT_TaskWeeklyTrigger'
+        }
+
+        It "Should create Hourly trigger with repetition" {
+            $trigger = ConvertTo-ScheduledTaskTrigger -Interval Hourly -RepetitionInterval (New-TimeSpan -Hours 2)
+            $trigger | Should -Not -BeNullOrEmpty
+        }
+    }
+}

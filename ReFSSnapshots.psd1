@@ -3,7 +3,7 @@
     RootModule = 'ReFSSnapshots.psm1'
 
     # Version number of this module
-    ModuleVersion = '1.0.0'
+    ModuleVersion = '1.1.0'
 
     # Supported PSEditions
     CompatiblePSEditions = @('Desktop', 'Core')
@@ -46,7 +46,11 @@
         'New-RefsSnapshot',
         'Get-RefsSnapshot',
         'Remove-RefsSnapshot',
-        'Compare-RefsSnapshot'
+        'Compare-RefsSnapshot',
+        'Register-RefsSnapshotSchedule',
+        'Get-RefsSnapshotSchedule',
+        'Update-RefsSnapshotSchedule',
+        'Unregister-RefsSnapshotSchedule'
     )
 
     # Cmdlets to export from this module
@@ -62,7 +66,7 @@
     PrivateData = @{
         PSData = @{
             # Tags applied to this module to aid in module discovery
-            Tags = @('ReFS', 'Snapshot', 'Storage', 'Windows', 'FileSystem', 'Backup')
+            Tags = @('ReFS', 'Snapshot', 'Storage', 'Windows', 'FileSystem', 'Backup', 'Automation', 'Schedule')
 
             # A URL to the license for this module
             LicenseUri = 'https://github.com/microsoft/ReFSSnapshots/blob/main/LICENSE'
@@ -72,6 +76,16 @@
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
+## Version 1.1.0
+- NEW: Scheduled snapshot automation via Windows Task Scheduler
+- Register-RefsSnapshotSchedule: Create automated snapshot schedules
+- Get-RefsSnapshotSchedule: List and query scheduled tasks
+- Update-RefsSnapshotSchedule: Modify existing schedules
+- Unregister-RefsSnapshotSchedule: Remove scheduled tasks
+- Automatic retention policies (default: 30 days)
+- Support for Daily, Weekly, Hourly, and custom intervals
+- Optional retention by days or snapshot count
+
 ## Version 1.0.0
 - Initial release
 - New-RefsSnapshot: Create stream snapshots
