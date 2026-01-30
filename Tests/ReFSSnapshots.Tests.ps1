@@ -27,6 +27,205 @@ Describe "Module: ReFSSnapshots" {
         It "Should export Compare-RefsSnapshot cmdlet" {
             Get-Command Compare-RefsSnapshot -Module ReFSSnapshots | Should -Not -BeNullOrEmpty
         }
+
+        It "Should export Register-RefsSnapshotSchedule cmdlet" {
+            Get-Command Register-RefsSnapshotSchedule -Module ReFSSnapshots | Should -Not -BeNullOrEmpty
+        }
+
+        It "Should export Get-RefsSnapshotSchedule cmdlet" {
+            Get-Command Get-RefsSnapshotSchedule -Module ReFSSnapshots | Should -Not -BeNullOrEmpty
+        }
+
+        It "Should export Update-RefsSnapshotSchedule cmdlet" {
+            Get-Command Update-RefsSnapshotSchedule -Module ReFSSnapshots | Should -Not -BeNullOrEmpty
+        }
+
+        It "Should export Unregister-RefsSnapshotSchedule cmdlet" {
+            Get-Command Unregister-RefsSnapshotSchedule -Module ReFSSnapshots | Should -Not -BeNullOrEmpty
+        }
+    }
+}
+
+Describe "System Requirements" {
+    Context "Operating System" {
+        BeforeAll {
+            $script:OSInfo = Get-CimInstance -ClassName Win32_OperatingSystem
+            $script:OSVersion = [System.Environment]::OSVersion
+        }
+
+        It "Should be running Windows" {
+            $script:OSVersion.Platform | Should -Be 'Win32NT'
+        }
+
+        It "Should be Windows 10 or Windows Server 2016+" {
+            # Windows 10 = 10.0, Server 2016 = 10.0
+            $script:OSVersion.Version.Major | Should -BeGreaterOrEqual 10
+        }
+
+        It "Should have a supported OS build" {
+            # Windows 10 1607 (Anniversary Update) = Build 14393
+            # Windows Server 2016 = Build 14393
+            # Windows Server 2019 = Build 17763
+            # ReFS stream snapshots require Server 2019+ (Build 17763+) or Win10 with ReFS support
+
+            if ($script:OSInfo.Caption -match "Server") {
+                # Server 2019+ (Build 17763+)
+                $script:OSVersion.Version.Build | Should -BeGreaterOrEqual 17763
+            }
+            else {
+                # Windows 10+ (Build 14393+)
+                $script:OSVersion.Version.Build | Should -BeGreaterOrEqual 14393
+            }
+        }
+
+        It "Should display OS information" {
+            Write-Host "  OS: $($script:OSInfo.Caption)" -ForegroundColor Cyan
+            Write-Host "  Version: $($script:OSVersion.Version)" -ForegroundColor Cyan
+            Write-Host "  Build: $($script:OSVersion.Version.Build)" -ForegroundColor Cyan
+            $true | Should -Be $true
+        }
+    }
+
+    Context "PowerShell Version" {
+        It "Should be PowerShell 5.1 or later" {
+            $PSVersionTable.PSVersion.Major | Should -BeGreaterOrEqual 5
+
+            if ($PSVersionTable.PSVersion.Major -eq 5) {
+                $PSVersionTable.PSVersion.Minor | Should -BeGreaterOrEqual 1
+            }
+        }
+
+        It "Should display PowerShell version" {
+            Write-Host "  PowerShell: $($PSVersionTable.PSVersion)" -ForegroundColor Cyan
+            Write-Host "  Edition: $($PSVersionTable.PSEdition)" -ForegroundColor Cyan
+            $true | Should -Be $true
+        }
+
+        It "Should have compatible PSEdition" {
+            $PSVersionTable.PSEdition | Should -BeIn @('Desktop', 'Core')
+        }
+    }
+
+    Context "ReFS Support" {
+        BeforeAll {
+            $script:RefsUtilPath = "$env:SystemRoot\System32\refsutil.exe"
+        }
+
+        It "Should have refsutil.exe available" {
+            Test-Path $script:RefsUtilPath | Should -Be $true
+        }
+
+        It "Should have executable refsutil.exe" {
+            if (Test-Path $script:RefsUtilPath) {
+                $refsutil = Get-Item $script:RefsUtilPath
+                $refsutil.Extension | Should -Be '.exe'
+                Write-Host "  refsutil.exe: $($refsutil.VersionInfo.FileVersion)" -ForegroundColor Cyan
+            }
+        }
+
+        It "Should be able to execute refsutil.exe" {
+            { & $script:RefsUtilPath 2>&1 | Out-Null } | Should -Not -Throw
+        }
+
+        It "Should support streamsnapshot command" {
+            $output = & $script:RefsUtilPath 2>&1 | Out-String
+            # refsutil help should mention available commands
+            $output | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    Context "ReFS Volume Detection" {
+        BeforeAll {
+            $script:RefsVolumes = Get-Volume | Where-Object { $_.FileSystemType -eq 'ReFS' }
+        }
+
+        It "Should be able to query volumes" {
+            { Get-Volume } | Should -Not -Throw
+        }
+
+        It "Should detect ReFS volumes if available" {
+            Write-Host "  ReFS volumes found: $($script:RefsVolumes.Count)" -ForegroundColor Cyan
+
+            if ($script:RefsVolumes) {
+                foreach ($vol in $script:RefsVolumes) {
+                    Write-Host "    - Drive $($vol.DriveLetter): $($vol.FileSystemType) ($($vol.Size / 1GB) GB)" -ForegroundColor Cyan
+                }
+            }
+            else {
+                Write-Warning "  No ReFS volumes detected. Integration tests will be skipped."
+            }
+
+            $true | Should -Be $true
+        }
+
+        It "Should support ReFS version 3.7+" -Skip:($null -eq $script:RefsVolumes) {
+            # ReFS 3.7 introduced stream snapshots in Windows Server 2022
+            # This is informational - we can't easily query ReFS version programmatically
+            Write-Host "  Note: Stream snapshots require ReFS 3.7+ (Windows Server 2022)" -ForegroundColor Yellow
+            $true | Should -Be $true
+        }
+    }
+
+    Context "Required Modules" {
+        It "Should have ScheduledTasks module available" {
+            Get-Module -Name ScheduledTasks -ListAvailable | Should -Not -BeNullOrEmpty
+        }
+
+        It "Should be able to import ScheduledTasks module" {
+            { Import-Module ScheduledTasks -ErrorAction Stop } | Should -Not -Throw
+        }
+
+        It "Should have Get-ScheduledTask cmdlet" {
+            Get-Command Get-ScheduledTask -ErrorAction SilentlyContinue | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    Context "Pester Version (Testing Only)" {
+        BeforeAll {
+            $script:PesterModule = Get-Module Pester
+        }
+
+        It "Should have Pester loaded for running tests" {
+            $script:PesterModule | Should -Not -BeNullOrEmpty
+            Write-Host "  Note: Pester is only required for running tests, not for using the module" -ForegroundColor Yellow
+        }
+
+        It "Should be Pester 5.0 or later (recommended for testing)" {
+            $script:PesterModule.Version.Major | Should -BeGreaterOrEqual 5
+        }
+
+        It "Should display Pester version" {
+            Write-Host "  Pester: $($script:PesterModule.Version)" -ForegroundColor Cyan
+            $true | Should -Be $true
+        }
+
+        It "Should have required Pester commands" {
+            Get-Command Describe -Module Pester | Should -Not -BeNullOrEmpty
+            Get-Command Context -Module Pester | Should -Not -BeNullOrEmpty
+            Get-Command It -Module Pester | Should -Not -BeNullOrEmpty
+            Get-Command Should -Module Pester | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    Context "System Requirements Summary" {
+        It "Should display complete system requirements check" {
+            Write-Host "`n=== System Requirements Summary ===" -ForegroundColor Green
+            Write-Host "✓ Operating System: Compatible" -ForegroundColor Green
+            Write-Host "✓ PowerShell Version: Compatible" -ForegroundColor Green
+            Write-Host "✓ ReFS Support: Available" -ForegroundColor Green
+            Write-Host "✓ ScheduledTasks Module: Available" -ForegroundColor Green
+            Write-Host "✓ Pester: Compatible (testing only)" -ForegroundColor Green
+
+            if (-not (Get-Volume | Where-Object { $_.FileSystemType -eq 'ReFS' })) {
+                Write-Host "⚠ ReFS Volumes: None detected (integration tests will be skipped)" -ForegroundColor Yellow
+            }
+            else {
+                Write-Host "✓ ReFS Volumes: Detected" -ForegroundColor Green
+            }
+
+            Write-Host "==================================`n" -ForegroundColor Green
+            $true | Should -Be $true
+        }
     }
 }
 

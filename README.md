@@ -16,10 +16,14 @@ PowerShell module for managing ReFS (Resilient File System) stream snapshots on 
 
 ## Requirements
 
+**Runtime Requirements:**
 - Windows Server 2019+ or Windows 10+
 - ReFS-formatted volume (version 3.7+)
 - PowerShell 5.1 or later (including PowerShell Core)
 - Administrator privileges (for some operations)
+
+**Testing Requirements (optional):**
+- Pester 5.0+ (only needed to run the test suite)
 
 ## Installation
 
@@ -264,17 +268,27 @@ $report | Format-Table
 
 ## Testing
 
-The module includes comprehensive Pester tests:
+The module includes comprehensive Pester tests. **Pester 5.0+ is required to run the test suite** (not needed for using the module):
 
 ```powershell
-# Run tests
+# Install Pester if needed
+Install-Module -Name Pester -MinimumVersion 5.0 -Force
+
+# Run all tests (includes system requirements validation)
 Invoke-Pester .\Tests\ReFSSnapshots.Tests.ps1
 
 # Run with coverage
 Invoke-Pester .\Tests\ReFSSnapshots.Tests.ps1 -CodeCoverage .\**\*.ps1
 ```
 
-Note: Integration tests require a ReFS volume and are skipped by default.
+**Test Coverage:**
+- System requirements validation (OS, PowerShell, ReFS, Pester versions)
+- Module loading and cmdlet exports
+- Parameter validation for all cmdlets
+- Helper function unit tests
+- Integration tests (require ReFS volume, skipped by default)
+
+Note: Integration tests require a ReFS volume and are skipped automatically if none is detected.
 
 ## Examples
 
