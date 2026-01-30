@@ -69,7 +69,7 @@ function Get-RefsSnapshotSchedule {
                 if ($taskInfo) {
                     # Filter by path if specified
                     if ($Path) {
-                        $resolvedPath = Resolve-Path -Path $Path -ErrorAction SilentlyContinue
+                        $resolvedPath = Resolve-Path -LiteralPath $Path -ErrorAction SilentlyContinue
                         if ($resolvedPath -and $taskInfo.FilePath -ne $resolvedPath.Path) {
                             continue
                         }

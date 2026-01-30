@@ -49,14 +49,15 @@ function New-RefsSnapshot {
 
     process {
         # Resolve path
-        $resolvedPath = Resolve-Path -Path $Path -ErrorAction SilentlyContinue
+        $resolvedPath = Resolve-Path -LiteralPath $Path -ErrorAction SilentlyContinue
         if (-not $resolvedPath) {
             Write-Error "Path not found: $Path"
             return
         }
 
         # Validate ReFS volume (only for file path, not stream)
-        $filePath = $resolvedPath.Path -replace ':.*$', ''
+        # Remove alternate data stream syntax (e.g., file.txt:StreamName -> file.txt)
+        $filePath = $resolvedPath.Path -replace ':[^:\\]+$', ''
         if (-not (Test-RefsVolume -Path $filePath)) {
             Write-Error "Path is not on a ReFS volume: $filePath"
             return

@@ -20,8 +20,8 @@ function Test-RefsVolume {
     )
 
     try {
-        $resolvedPath = Resolve-Path -Path $Path -ErrorAction Stop
-        $drive = Split-Path -Path $resolvedPath -Qualifier
+        $resolvedPath = Resolve-Path -LiteralPath $Path -ErrorAction Stop
+        $drive = Split-Path -Path $resolvedPath.Path -Qualifier
 
         if ([string]::IsNullOrEmpty($drive)) {
             throw "Cannot determine drive letter for path: $Path"
