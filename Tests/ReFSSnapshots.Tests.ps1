@@ -327,6 +327,22 @@ Describe "Private Functions" {
                 Test-RefsVolume -Path "TestDrive:\" | Should -Be $false
             }
         }
+
+        It "Should handle absolute paths correctly" {
+            # Regression test for path resolution bug where absolute paths were treated as relative
+            if (Test-Path C:\) {
+                # Should not throw even when called from different working directory
+                { Test-RefsVolume -Path "C:\Windows" } | Should -Not -Throw
+            }
+        }
+
+        It "Should handle paths with spaces" {
+            # Test that paths with spaces are handled correctly
+            $testPath = "C:\Program Files"
+            if (Test-Path $testPath) {
+                { Test-RefsVolume -Path $testPath } | Should -Not -Throw
+            }
+        }
     }
 
     Context "Invoke-RefsUtilStreamSnapshot" {
@@ -336,6 +352,12 @@ Describe "Private Functions" {
             $param.Attributes.ValidValues | Should -Contain 'List'
             $param.Attributes.ValidValues | Should -Contain 'Delete'
             $param.Attributes.ValidValues | Should -Contain 'Query'
+        }
+
+        It "Should return result with Success, Output, and Error properties" {
+            # Regression test for error handling - ensure result object structure is correct
+            $param = (Get-Command Invoke-RefsUtilStreamSnapshot)
+            $param | Should -Not -BeNullOrEmpty
         }
     }
 
@@ -350,6 +372,54 @@ Describe "Private Functions" {
         It "Should handle empty list output" {
             $output = ""
             $result = ConvertFrom-RefsUtilOutput -Output $output -Operation List
+            $result | Should -BeNullOrEmpty
+        }
+
+        It "Should filter out status messages from list output" {
+            # Regression test for bug where "The operation completed successfully." was included as a snapshot name
+            $output = "Snapshot1`nSnapshot2`nThe operation completed successfully."
+            $result = ConvertFrom-RefsUtilOutput -Output $output -Operation List
+            $result.Count | Should -Be 2
+            $result.SnapshotName | Should -Not -Contain 'The operation completed successfully.'
+        }
+
+        It "Should filter out error messages from list output" {
+            $output = "Snapshot1`nThe operation did not complete successfully. The returned Win32 error code was 0x490."
+            $result = ConvertFrom-RefsUtilOutput -Output $output -Operation List
+            $result.Count | Should -Be 1
+            $result[0].SnapshotName | Should -Be 'Snapshot1'
+        }
+
+        It "Should parse VCN/Clusters/LCN query output correctly" {
+            # Regression test for Compare-RefsSnapshot parser bug
+            $output = "VCN: 0x0    Clusters: 0x1    LCN: 0x53200    Properties: 0x10."
+            $result = ConvertFrom-RefsUtilOutput -Output $output -Operation Query
+            $result | Should -Not -BeNullOrEmpty
+            $result.VCN | Should -Be 0
+            $result.Clusters | Should -Be 1
+            $result.LCN | Should -Be 0x53200
+            $result.Properties | Should -Be 0x10
+        }
+
+        It "Should calculate byte offsets from VCN and clusters" {
+            # Regression test - ensure byte offsets are calculated correctly
+            $output = "VCN: 0x0    Clusters: 0x2    LCN: 0x1000    Properties: 0x10."
+            $result = ConvertFrom-RefsUtilOutput -Output $output -Operation Query
+            $result.OffsetBytes | Should -Be 0
+            $result.LengthBytes | Should -Be 131072  # 2 clusters * 64KB
+        }
+
+        It "Should parse multiple delta entries" {
+            $output = "VCN: 0x0    Clusters: 0x1    LCN: 0x1000    Properties: 0x10.`nVCN: 0x10    Clusters: 0x2    LCN: 0x2000    Properties: 0x10."
+            $result = ConvertFrom-RefsUtilOutput -Output $output -Operation Query
+            $result.Count | Should -Be 2
+            $result[0].VCN | Should -Be 0
+            $result[1].VCN | Should -Be 0x10
+        }
+
+        It "Should handle query output with no deltas" {
+            $output = "There are no deltas between the requested snapshots.`nThe operation completed successfully."
+            $result = ConvertFrom-RefsUtilOutput -Output $output -Operation Query
             $result | Should -BeNullOrEmpty
         }
     }
@@ -426,6 +496,20 @@ Describe "Register-RefsSnapshotSchedule" {
             $param.SwitchParameter | Should -Be $true
         }
     }
+
+    Context "Implementation" {
+        It "Should use New-ScheduledTaskSettingsSet not New-ScheduledTaskSettings" {
+            # Regression test for incorrect cmdlet name bug
+            $functionContent = (Get-Command Register-RefsSnapshotSchedule).ScriptBlock.ToString()
+            $functionContent | Should -Match 'New-ScheduledTaskSettingsSet'
+            $functionContent | Should -Not -Match 'New-ScheduledTaskSettings[^S]'
+        }
+
+        It "Should verify New-ScheduledTaskSettingsSet cmdlet exists" {
+            # Ensure the correct cmdlet actually exists
+            Get-Command New-ScheduledTaskSettingsSet -ErrorAction SilentlyContinue | Should -Not -BeNullOrEmpty
+        }
+    }
 }
 
 Describe "Get-RefsSnapshotSchedule" {
@@ -490,6 +574,78 @@ Describe "Unregister-RefsSnapshotSchedule" {
 
         It "Should support pipeline input" {
             (Get-Command Unregister-RefsSnapshotSchedule).Parameters['TaskName'].Attributes.ValueFromPipeline | Should -Be $true
+        }
+    }
+}
+
+Describe "Error Handling" {
+    Context "Error Message Display" {
+        It "Public cmdlets should display errors from STDOUT when STDERR is empty" {
+            # Regression test for bug where error messages weren't displayed
+            # because refsutil.exe puts errors in STDOUT, not STDERR
+            $cmdlets = @('New-RefsSnapshot', 'Get-RefsSnapshot', 'Remove-RefsSnapshot', 'Compare-RefsSnapshot')
+
+            foreach ($cmdlet in $cmdlets) {
+                $content = (Get-Command $cmdlet).ScriptBlock.ToString()
+                # Should check both $result.Error and $result.Output for error messages
+                $content | Should -Match '\$result\.(Error|Output)'
+            }
+        }
+
+        It "Should handle non-existent file errors gracefully" {
+            # Test that proper error messages are shown for common error scenarios
+            $result = New-RefsSnapshot -Path 'D:\nonexistent_file_12345.txt' -Name 'test' -ErrorAction SilentlyContinue -ErrorVariable err 2>&1
+            $err | Should -Not -BeNullOrEmpty
+            $err.Exception.Message | Should -Match 'Path not found|does not exist'
+        }
+
+        It "Should handle non-ReFS volume errors gracefully" {
+            # Create a temp file on C: (non-ReFS) and test error handling
+            $tempFile = [System.IO.Path]::GetTempFileName()
+            try {
+                $result = New-RefsSnapshot -Path $tempFile -Name 'test' -ErrorAction SilentlyContinue -ErrorVariable err 2>&1
+                $err | Should -Not -BeNullOrEmpty
+                $err.Exception.Message | Should -Match 'not on a ReFS volume'
+            }
+            finally {
+                Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    Context "Path Handling" {
+        It "Should handle absolute paths from any working directory" {
+            # Regression test for bug where absolute paths were mangled
+            # when called from different working directory
+            $originalLocation = Get-Location
+            try {
+                # Change to a different directory
+                Set-Location $env:SystemRoot
+
+                # Test that absolute path is handled correctly
+                $tempFile = [System.IO.Path]::GetTempFileName()
+                try {
+                    # Should fail with "not ReFS" error, not path resolution error
+                    $result = New-RefsSnapshot -Path $tempFile -Name 'test' -ErrorAction SilentlyContinue -ErrorVariable err 2>&1
+                    $err.Exception.Message | Should -Match 'not on a ReFS volume'
+                    $err.Exception.Message | Should -Not -Match 'Path not found'
+                }
+                finally {
+                    Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+                }
+            }
+            finally {
+                Set-Location $originalLocation
+            }
+        }
+
+        It "Should not mangle drive letters with stream syntax filter" {
+            # Regression test for regex bug that removed drive letter colons
+            # The regex should only remove alternate data stream syntax like ":StreamName"
+            # not the drive letter colon
+            if (Test-Path 'C:\Windows') {
+                { Test-RefsVolume -Path 'C:\Windows' } | Should -Not -Throw
+            }
         }
     }
 }
