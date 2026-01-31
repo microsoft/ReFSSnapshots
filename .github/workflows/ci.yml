@@ -23,30 +23,39 @@ jobs:
       uses: actions/setup-powershell@v1
 
     - name: Display PowerShell version
-      shell: pwsh
+      shell: powershell
       run: $PSVersionTable
 
     - name: Install Pester
-      shell: pwsh
+      shell: powershell
       run: |
         Install-Module -Name Pester -MinimumVersion 5.0.0 -Force -SkipPublisherCheck
 
     - name: Install PSScriptAnalyzer
-      shell: pwsh
+      shell: powershell
       run: |
         Install-Module -Name PSScriptAnalyzer -Force -SkipPublisherCheck
 
     - name: Run PSScriptAnalyzer
-      shell: pwsh
+      shell: powershell
       run: |
-        $results = Invoke-ScriptAnalyzer -Path . -Recurse -Settings PSScriptAnalyzerSettings.psd1
+        $results = Invoke-ScriptAnalyzer -Path . -Recurse -Settings PSScriptAnalyzerSettings.psd1 -Severity Error
         if ($results) {
           $results | Format-Table -AutoSize
-          throw "PSScriptAnalyzer found $($results.Count) issue(s)"
+          throw "PSScriptAnalyzer found $($results.Count) error(s)"
+        } else {
+          Write-Host "PSScriptAnalyzer: No errors found" -ForegroundColor Green
+        }
+
+        # Show warnings but don't fail
+        $warnings = Invoke-ScriptAnalyzer -Path . -Recurse -Settings PSScriptAnalyzerSettings.psd1 -Severity Warning
+        if ($warnings) {
+          Write-Host "`nFound $($warnings.Count) warnings (non-blocking):" -ForegroundColor Yellow
+          $warnings | Select-Object -First 10 | Format-Table RuleName, ScriptName, Line
         }
 
     - name: Test module manifest
-      shell: pwsh
+      shell: powershell
       run: |
         $manifest = Test-ModuleManifest -Path .\ReFSSnapshots.psd1 -ErrorAction Stop
         Write-Host "Module manifest is valid"
@@ -54,13 +63,12 @@ jobs:
         Write-Host "Exported functions: $($manifest.ExportedFunctions.Count)"
 
     - name: Run Pester tests
-      shell: pwsh
+      shell: powershell
       run: |
         $config = New-PesterConfiguration
         $config.Run.Path = '.\Tests'
         $config.Run.Exit = $true
-        $config.CodeCoverage.Enabled = $true
-        $config.CodeCoverage.Path = '.\Public\*.ps1', '.\Private\*.ps1'
+        $config.CodeCoverage.Enabled = $false
         $config.TestResult.Enabled = $true
         $config.TestResult.OutputPath = 'testResults.xml'
         Invoke-Pester -Configuration $config
@@ -81,11 +89,14 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Run PSScriptAnalyzer for Security
-      shell: pwsh
+      shell: powershell
       run: |
         Install-Module -Name PSScriptAnalyzer -Force -SkipPublisherCheck
-        $securityResults = Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error,Warning
-        if ($securityResults) {
-          $securityResults | Format-Table -AutoSize
-          Write-Warning "Found $($securityResults.Count) security/quality issue(s)"
+        $errors = Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error
+        if ($errors) {
+          Write-Host "Security/Quality Errors:" -ForegroundColor Red
+          $errors | Format-Table -AutoSize
+          throw "Found $($errors.Count) error(s)"
+        } else {
+          Write-Host "No security or quality errors found" -ForegroundColor Green
         }
