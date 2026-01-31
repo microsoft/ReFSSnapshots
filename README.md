@@ -71,7 +71,7 @@ Register-RefsSnapshotSchedule -Path D:\Data\database.dat -Interval Daily
 Creates a new snapshot of a file or stream.
 
 ```powershell
-New-RefsSnapshot -Path <String> -Name <String> [-PassThru] [-WhatIf] [-Confirm]
+New-RefsSnapshot -Path <String> -Name <String> [-WhatIf] [-Confirm]
 ```
 
 **Examples:**
@@ -81,7 +81,7 @@ New-RefsSnapshot -Path <String> -Name <String> [-PassThru] [-WhatIf] [-Confirm]
 New-RefsSnapshot -Path D:\Data\file.dat -Name "Backup_2024"
 
 # Create snapshot with return object
-New-RefsSnapshot -Path D:\Data\file.dat -Name "Backup" -PassThru
+$snapshot = New-RefsSnapshot -Path D:\Data\file.dat -Name "Backup"
 
 # Snapshot a named stream
 New-RefsSnapshot -Path D:\Data\file.txt:MyStream -Name "StreamBackup"

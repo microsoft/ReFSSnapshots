@@ -14,23 +14,26 @@ function New-RefsSnapshot {
     .PARAMETER Name
         Name for the snapshot. Must be unique for this file/stream.
 
-    .PARAMETER PassThru
-        Returns an object representing the created snapshot.
-
     .EXAMPLE
         New-RefsSnapshot -Path C:\Data\database.dat -Name "BeforeUpdate"
 
-        Creates a snapshot named "BeforeUpdate" of the default stream.
+        Creates a snapshot named "BeforeUpdate" and returns the snapshot object.
 
     .EXAMPLE
-        New-RefsSnapshot -Path C:\Data\file.txt:MyStream -Name "Backup_2024"
+        $snapshot = New-RefsSnapshot -Path C:\Data\file.txt -Name "Backup_2024"
 
-        Creates a snapshot of the named stream "MyStream".
+        Creates a snapshot and stores the returned object in a variable.
+
+    .EXAMPLE
+        Get-ChildItem C:\Data\*.dat | New-RefsSnapshot -Name "Daily_Backup"
+
+        Creates snapshots for all .dat files via pipeline.
 
     .OUTPUTS
-        None, or PSCustomObject if -PassThru is specified
+        PSCustomObject with SnapshotName, FilePath, and DateCreated properties
     #>
     [CmdletBinding(SupportsShouldProcess)]
+    [OutputType('RefsSnapshot')]
     param(
         [Parameter(Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [Alias('FilePath', 'FullName')]
@@ -38,9 +41,7 @@ function New-RefsSnapshot {
 
         [Parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]
-        [string]$Name,
-
-        [switch]$PassThru
+        [string]$Name
     )
 
     begin {
@@ -70,13 +71,12 @@ function New-RefsSnapshot {
                 if ($result.Success) {
                     Write-Verbose "Snapshot '$Name' created successfully"
 
-                    if ($PassThru) {
-                        [PSCustomObject]@{
-                            PSTypeName   = 'RefsSnapshot'
-                            SnapshotName = $Name
-                            FilePath     = $resolvedPath.Path
-                            Created      = Get-Date
-                        }
+                    # Always return snapshot object
+                    [PSCustomObject]@{
+                        PSTypeName   = 'RefsSnapshot'
+                        SnapshotName = $Name
+                        FilePath     = $resolvedPath.Path
+                        DateCreated  = Get-Date
                     }
                 }
                 else {

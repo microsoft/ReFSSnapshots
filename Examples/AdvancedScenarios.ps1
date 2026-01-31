@@ -105,7 +105,7 @@ function New-BulkRefsSnapshot {
 
     $results = foreach ($path in $Paths) {
         try {
-            New-RefsSnapshot -Path $path -Name $SnapshotName -PassThru -ErrorAction Stop
+            $null = New-RefsSnapshot -Path $path -Name $SnapshotName -ErrorAction Stop
             [PSCustomObject]@{
                 Path    = $path
                 Success = $true
