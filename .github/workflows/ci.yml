@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Test on PowerShell ${{ matrix.psversion }}
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        psversion: ['5.1', '7.4']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup PowerShell 7
+      if: matrix.psversion == '7.4'
+      uses: actions/setup-powershell@v1
+
+    - name: Display PowerShell version
+      shell: pwsh
+      run: $PSVersionTable
+
+    - name: Install Pester
+      shell: pwsh
+      run: |
+        Install-Module -Name Pester -MinimumVersion 5.0.0 -Force -SkipPublisherCheck
+
+    - name: Install PSScriptAnalyzer
+      shell: pwsh
+      run: |
+        Install-Module -Name PSScriptAnalyzer -Force -SkipPublisherCheck
+
+    - name: Run PSScriptAnalyzer
+      shell: pwsh
+      run: |
+        $results = Invoke-ScriptAnalyzer -Path . -Recurse -Settings PSScriptAnalyzerSettings.psd1
+        if ($results) {
+          $results | Format-Table -AutoSize
+          throw "PSScriptAnalyzer found $($results.Count) issue(s)"
+        }
+
+    - name: Test module manifest
+      shell: pwsh
+      run: |
+        $manifest = Test-ModuleManifest -Path .\ReFSSnapshots.psd1 -ErrorAction Stop
+        Write-Host "Module manifest is valid"
+        Write-Host "Version: $($manifest.Version)"
+        Write-Host "Exported functions: $($manifest.ExportedFunctions.Count)"
+
+    - name: Run Pester tests
+      shell: pwsh
+      run: |
+        $config = New-PesterConfiguration
+        $config.Run.Path = '.\Tests'
+        $config.Run.Exit = $true
+        $config.CodeCoverage.Enabled = $true
+        $config.CodeCoverage.Path = '.\Public\*.ps1', '.\Private\*.ps1'
+        $config.TestResult.Enabled = $true
+        $config.TestResult.OutputPath = 'testResults.xml'
+        Invoke-Pester -Configuration $config
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-ps${{ matrix.psversion }}
+        path: testResults.xml
+
+  analyze:
+    name: Security and Quality Analysis
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run PSScriptAnalyzer for Security
+      shell: pwsh
+      run: |
+        Install-Module -Name PSScriptAnalyzer -Force -SkipPublisherCheck
+        $securityResults = Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error,Warning
+        if ($securityResults) {
+          $securityResults | Format-Table -AutoSize
+          Write-Warning "Found $($securityResults.Count) security/quality issue(s)"
+        }
