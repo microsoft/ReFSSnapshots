@@ -2,7 +2,7 @@ TOPIC
     about_ReFSSnapshots
 
 SHORT DESCRIPTION
-    PowerShell module for managing and scheduling ReFS stream snapshots on Windows.
+    PowerShell module for managing ReFS stream snapshots on Windows.
 
 LONG DESCRIPTION
     The ReFSSnapshots module provides cmdlets to create, list, compare, and
