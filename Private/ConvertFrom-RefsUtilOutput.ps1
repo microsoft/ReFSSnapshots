@@ -44,24 +44,44 @@ function ConvertFrom-RefsUtilOutput {
 
         'Query' {
             # Parse delta query output
-            # Expected format: Offset and length information for modified regions
+            # Actual format from refsutil: "VCN: 0x0    Clusters: 0x1    LCN: 0x53200    Properties: 0x10."
             $lines = $Output -split "`r`n|`n" | Where-Object { $_.Trim() -ne '' }
 
             foreach ($line in $lines) {
-                # Parse format like "Offset: 0x1000, Length: 0x2000"
-                if ($line -match 'Offset:\s*0x([0-9A-Fa-f]+).*Length:\s*0x([0-9A-Fa-f]+)') {
+                # Parse VCN/Clusters/LCN format (actual refsutil output)
+                if ($line -match 'VCN:\s*0x([0-9A-Fa-f]+)\s+Clusters:\s*0x([0-9A-Fa-f]+)\s+LCN:\s*0x([0-9A-Fa-f]+)\s+Properties:\s*0x([0-9A-Fa-f]+)') {
+                    $vcn = [Convert]::ToInt64($matches[1], 16)
+                    $clusters = [Convert]::ToInt64($matches[2], 16)
+                    $lcn = [Convert]::ToInt64($matches[3], 16)
+                    $properties = [Convert]::ToInt64($matches[4], 16)
+
+                    # ReFS typically uses 64KB cluster size, calculate byte offsets
+                    $clusterSize = 65536
+
                     [PSCustomObject]@{
-                        PSTypeName = 'RefsSnapshotDelta'
-                        Offset     = [Convert]::ToInt64($matches[1], 16)
-                        Length     = [Convert]::ToInt64($matches[2], 16)
+                        PSTypeName      = 'RefsSnapshotDelta'
+                        VCN             = $vcn
+                        Clusters        = $clusters
+                        LCN             = $lcn
+                        Properties      = $properties
+                        OffsetBytes     = $vcn * $clusterSize
+                        LengthBytes     = $clusters * $clusterSize
                     }
                 }
-                # Alternative format: "Range: offset length"
+                # Legacy format: "Offset: 0x1000, Length: 0x2000" (if ever encountered)
+                elseif ($line -match 'Offset:\s*0x([0-9A-Fa-f]+).*Length:\s*0x([0-9A-Fa-f]+)') {
+                    [PSCustomObject]@{
+                        PSTypeName = 'RefsSnapshotDelta'
+                        OffsetBytes     = [Convert]::ToInt64($matches[1], 16)
+                        LengthBytes     = [Convert]::ToInt64($matches[2], 16)
+                    }
+                }
+                # Legacy format: "Range: offset length" (if ever encountered)
                 elseif ($line -match 'Range:\s*(\d+)\s+(\d+)') {
                     [PSCustomObject]@{
                         PSTypeName = 'RefsSnapshotDelta'
-                        Offset     = [int64]$matches[1]
-                        Length     = [int64]$matches[2]
+                        OffsetBytes     = [int64]$matches[1]
+                        LengthBytes     = [int64]$matches[2]
                     }
                 }
             }
