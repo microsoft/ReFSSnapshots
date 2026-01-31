@@ -77,7 +77,8 @@ function Remove-RefsSnapshot {
                     Write-Verbose "Snapshot '$Name' deleted successfully"
                 }
                 else {
-                    Write-Error "Failed to delete snapshot: $($result.Error)"
+                    $errorMsg = if ($result.Error) { $result.Error } else { $result.Output }
+                    Write-Error "Failed to delete snapshot: $errorMsg"
                 }
             }
             catch {

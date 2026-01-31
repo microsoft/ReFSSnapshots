@@ -72,7 +72,8 @@ function Compare-RefsSnapshot {
                 }
             }
             else {
-                Write-Error "Failed to query snapshot deltas: $($result.Error)"
+                $errorMsg = if ($result.Error) { $result.Error } else { $result.Output }
+                Write-Error "Failed to query snapshot deltas: $errorMsg"
             }
         }
         catch {

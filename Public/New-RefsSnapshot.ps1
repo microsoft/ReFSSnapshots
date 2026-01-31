@@ -80,7 +80,8 @@ function New-RefsSnapshot {
                     }
                 }
                 else {
-                    Write-Error "Failed to create snapshot: $($result.Error)"
+                    $errorMsg = if ($result.Error) { $result.Error } else { $result.Output }
+                    Write-Error "Failed to create snapshot: $errorMsg"
                 }
             }
             catch {

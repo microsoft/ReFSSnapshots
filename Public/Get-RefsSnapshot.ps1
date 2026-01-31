@@ -74,7 +74,8 @@ function Get-RefsSnapshot {
                 }
             }
             else {
-                Write-Error "Failed to list snapshots: $($result.Error)"
+                $errorMsg = if ($result.Error) { $result.Error } else { $result.Output }
+                Write-Error "Failed to list snapshots: $errorMsg"
             }
         }
         catch {
