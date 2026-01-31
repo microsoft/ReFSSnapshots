@@ -40,8 +40,8 @@ Import-Module '$modulePath\ReFSSnapshots.psd1' -Force
 
 try {
     # Create snapshot
-    New-RefsSnapshot -Path '$Path' -Name '$snapshotName' -ErrorAction Stop
-    Write-Output "Snapshot created: $snapshotName"
+    `$snapshot = New-RefsSnapshot -Path '$Path' -Name '$snapshotName' -ErrorAction Stop
+    Write-Output "Snapshot created: `$(`$snapshot.SnapshotName) at `$(`$snapshot.DateCreated)"
 
 "@
 
