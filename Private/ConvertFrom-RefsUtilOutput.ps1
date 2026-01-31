@@ -33,6 +33,11 @@ function ConvertFrom-RefsUtilOutput {
             $lines = $Output -split "`r`n|`n" | Where-Object { $_.Trim() -ne '' }
 
             foreach ($line in $lines) {
+                # Skip status messages from refsutil.exe
+                if ($line -match '(operation completed successfully|operation did not complete|error|Win32)') {
+                    continue
+                }
+
                 if ($line -match '^\s*(.+?)\s*$') {
                     [PSCustomObject]@{
                         PSTypeName   = 'RefsSnapshot'
