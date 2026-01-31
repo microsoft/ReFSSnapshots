@@ -1,0 +1,149 @@
+TOPIC
+    about_ReFSSnapshots
+
+SHORT DESCRIPTION
+    PowerShell module for managing and scheduling ReFS stream snapshots on Windows.
+
+LONG DESCRIPTION
+    The ReFSSnapshots module provides cmdlets to create, list, compare, and
+    delete file-level snapshots on ReFS (Resilient File System) volumes using
+    native Windows capabilities.
+
+    ReFS stream snapshots enable point-in-time copies of files without consuming
+    additional storage space until changes are made. This is useful for:
+    - Creating backups before updates
+    - Tracking changes to files over time
+    - Comparing different versions of files
+    - Scheduled automated backups
+
+SYSTEM REQUIREMENTS
+    - Windows Server 2019+ or Windows 10+ with ReFS support
+    - PowerShell 5.1 or later
+    - ReFS-formatted volume
+    - Administrator privileges (for some operations)
+
+AVAILABLE CMDLETS
+    Snapshot Management:
+        New-RefsSnapshot              Create a new snapshot
+        Get-RefsSnapshot              List snapshots
+        Compare-RefsSnapshot          Compare snapshot with current state
+        Remove-RefsSnapshot           Delete a snapshot
+
+    Scheduled Snapshots:
+        Register-RefsSnapshotSchedule   Create scheduled snapshot task
+        Get-RefsSnapshotSchedule        View scheduled tasks
+        Update-RefsSnapshotSchedule     Modify scheduled task
+        Unregister-RefsSnapshotSchedule Remove scheduled task
+
+GETTING STARTED
+    1. Import the module:
+       Import-Module ReFSSnapshots
+
+    2. List available commands:
+       Get-Command -Module ReFSSnapshots
+
+    3. Get help for a specific command:
+       Get-Help New-RefsSnapshot -Detailed
+       Get-Help New-RefsSnapshot -Examples
+
+    4. View this help topic:
+       Get-Help about_ReFSSnapshots
+
+BASIC EXAMPLES
+    Create a snapshot:
+        New-RefsSnapshot -Path D:\Data\file.dat -Name "BeforeUpdate"
+
+    List all snapshots for a file:
+        Get-RefsSnapshot -Path D:\Data\file.dat
+
+    List snapshots matching a pattern:
+        Get-RefsSnapshot -Path D:\Data\file.dat -Name "Backup_*"
+
+    Compare snapshot with current file:
+        Compare-RefsSnapshot -Path D:\Data\file.dat -Name "BeforeUpdate"
+
+    Delete a snapshot:
+        Remove-RefsSnapshot -Path D:\Data\file.dat -Name "BeforeUpdate" -Force
+
+PIPELINE EXAMPLES
+    Create snapshots for multiple files:
+        Get-ChildItem D:\Data\*.dat |
+            New-RefsSnapshot -Name "DailyBackup_$(Get-Date -Format 'yyyyMMdd')"
+
+    Delete old snapshots:
+        Get-RefsSnapshot -Path D:\Data\file.dat -Name "Old_*" |
+            Remove-RefsSnapshot -Force
+
+SCHEDULED SNAPSHOTS
+    Create daily snapshots at 3 AM:
+        Register-RefsSnapshotSchedule -Path D:\Data\file.dat `
+            -Interval Daily -At (Get-Date "3:00 AM") -RetentionDays 30
+
+    Create hourly snapshots, keep last 24:
+        Register-RefsSnapshotSchedule -Path D:\Data\file.dat `
+            -Interval Hourly -RetentionCount 24
+
+    View scheduled tasks:
+        Get-RefsSnapshotSchedule
+
+    Remove a scheduled task:
+        Unregister-RefsSnapshotSchedule -TaskName "RefsSnapshot_file.dat_Daily"
+
+UNDERSTANDING OUTPUTS
+    New-RefsSnapshot returns an object with:
+        SnapshotName    Name of the created snapshot
+        FilePath        Full path to the file
+        DateCreated     Timestamp when created
+
+    Compare-RefsSnapshot returns delta objects with:
+        VCN             Virtual Cluster Number (starting cluster)
+        Clusters        Number of clusters changed
+        OffsetBytes     Byte offset where change occurred
+        LengthBytes     Length in bytes of the change
+
+COMMON SCENARIOS
+    Backup before updating a database:
+        New-RefsSnapshot -Path D:\DB\database.mdf -Name "BeforeUpgrade"
+        # Perform update...
+        # If something goes wrong, you have the snapshot to reference
+
+    Track changes over time:
+        New-RefsSnapshot -Path D:\Logs\app.log -Name "Hourly_$(Get-Date -Format 'HHmmss')"
+        # Later, compare:
+        Compare-RefsSnapshot -Path D:\Logs\app.log -Name "Hourly_120000"
+
+    Automated daily backups:
+        Register-RefsSnapshotSchedule -Path D:\Data\critical.dat `
+            -Interval Daily -RetentionDays 7
+
+LIMITATIONS
+    - ReFS snapshots only work on ReFS-formatted volumes
+    - Snapshots are read-only references, not separate copies
+    - Alternate data streams (ADS) are not supported for snapshots
+    - Snapshot names must be unique per file
+
+TROUBLESHOOTING
+    "Path is not on a ReFS volume":
+        Ensure your drive is formatted as ReFS. Check with:
+        Get-Volume | Where-Object { $_.FileSystemType -eq 'ReFS' }
+
+    "Cannot create a file when that file already exists":
+        A snapshot with that name already exists. Use Get-RefsSnapshot
+        to list existing snapshots and choose a unique name.
+
+    "Access is denied":
+        Some operations require administrator privileges. Run PowerShell
+        as Administrator.
+
+SEE ALSO
+    Get-Help New-RefsSnapshot
+    Get-Help Get-RefsSnapshot
+    Get-Help Compare-RefsSnapshot
+    Get-Help Remove-RefsSnapshot
+    Get-Help Register-RefsSnapshotSchedule
+
+    Online documentation:
+    https://github.com/microsoft/ReFSSnapshots
+
+KEYWORDS
+    ReFS, Snapshots, Backup, Resilient File System, Windows
