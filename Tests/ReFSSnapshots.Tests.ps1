@@ -321,47 +321,48 @@ Describe "Compare-RefsSnapshot" {
 }
 
 Describe "Private Functions" {
-    Context "Test-RefsVolume" {
-        It "Should return false for non-ReFS paths" {
-            if (Test-Path TestDrive:\) {
-                Test-RefsVolume -Path "TestDrive:\" | Should -Be $false
+    InModuleScope ReFSSnapshots {
+        Context "Test-RefsVolume" {
+            It "Should return false for non-ReFS paths" {
+                if (Test-Path TestDrive:\) {
+                    Test-RefsVolume -Path "TestDrive:\" | Should -Be $false
+                }
+            }
+
+            It "Should handle absolute paths correctly" {
+                # Regression test for path resolution bug where absolute paths were treated as relative
+                if (Test-Path C:\) {
+                    # Should not throw even when called from different working directory
+                    { Test-RefsVolume -Path "C:\Windows" } | Should -Not -Throw
+                }
+            }
+
+            It "Should handle paths with spaces" {
+                # Test that paths with spaces are handled correctly
+                $testPath = "C:\Program Files"
+                if (Test-Path $testPath) {
+                    { Test-RefsVolume -Path $testPath } | Should -Not -Throw
+                }
             }
         }
 
-        It "Should handle absolute paths correctly" {
-            # Regression test for path resolution bug where absolute paths were treated as relative
-            if (Test-Path C:\) {
-                # Should not throw even when called from different working directory
-                { Test-RefsVolume -Path "C:\Windows" } | Should -Not -Throw
+        Context "Invoke-RefsUtilStreamSnapshot" {
+            It "Should validate Operation parameter" {
+                $param = (Get-Command Invoke-RefsUtilStreamSnapshot).Parameters['Operation']
+                $param.Attributes.ValidValues | Should -Contain 'Create'
+                $param.Attributes.ValidValues | Should -Contain 'List'
+                $param.Attributes.ValidValues | Should -Contain 'Delete'
+                $param.Attributes.ValidValues | Should -Contain 'Query'
+            }
+
+            It "Should return result with Success, Output, and Error properties" {
+                # Regression test for error handling - ensure result object structure is correct
+                $param = (Get-Command Invoke-RefsUtilStreamSnapshot)
+                $param | Should -Not -BeNullOrEmpty
             }
         }
 
-        It "Should handle paths with spaces" {
-            # Test that paths with spaces are handled correctly
-            $testPath = "C:\Program Files"
-            if (Test-Path $testPath) {
-                { Test-RefsVolume -Path $testPath } | Should -Not -Throw
-            }
-        }
-    }
-
-    Context "Invoke-RefsUtilStreamSnapshot" {
-        It "Should validate Operation parameter" {
-            $param = (Get-Command Invoke-RefsUtilStreamSnapshot).Parameters['Operation']
-            $param.Attributes.ValidValues | Should -Contain 'Create'
-            $param.Attributes.ValidValues | Should -Contain 'List'
-            $param.Attributes.ValidValues | Should -Contain 'Delete'
-            $param.Attributes.ValidValues | Should -Contain 'Query'
-        }
-
-        It "Should return result with Success, Output, and Error properties" {
-            # Regression test for error handling - ensure result object structure is correct
-            $param = (Get-Command Invoke-RefsUtilStreamSnapshot)
-            $param | Should -Not -BeNullOrEmpty
-        }
-    }
-
-    Context "ConvertFrom-RefsUtilOutput" {
+        Context "ConvertFrom-RefsUtilOutput" {
         It "Should parse list output correctly" {
             $output = "Snapshot1`nSnapshot2`nSnapshot3"
             $result = ConvertFrom-RefsUtilOutput -Output $output -Operation List
@@ -422,6 +423,7 @@ Describe "Private Functions" {
             $result = ConvertFrom-RefsUtilOutput -Output $output -Operation Query
             $result | Should -BeNullOrEmpty
         }
+    }
     }
 }
 
