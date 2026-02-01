@@ -322,7 +322,9 @@ ReFSSnapshots/
 
 ## Contributing
 
-Contributions are welcome! Please ensure:
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+
+Quick checklist:
 1. All tests pass
 2. New features include tests
 3. Follow existing code style

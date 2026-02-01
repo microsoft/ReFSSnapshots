@@ -2,10 +2,6 @@
 
 Thank you for your interest in contributing to ReFSSnapshots! This document provides guidelines and instructions for contributing to this project.
 
-## Code of Conduct
-
-This project has adopted a Code of Conduct that we expect all contributors to adhere to. Please read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before contributing.
-
 ## How to Contribute
 
 ### Reporting Bugs
