@@ -130,19 +130,6 @@ N/A - Initial release
 
 ---
 
-## Roadmap
-
-Future versions may include:
-
-- **v1.1**: Restore functionality from snapshots
-- **v1.2**: Scheduled snapshot automation
-- **v1.3**: Snapshot metadata and tagging
-- **v2.0**: Native P/Invoke implementation (optional)
-- **v2.1**: Remote ReFS volume support
-- **v2.2**: Integration with Windows Backup
-
----
-
 ## Changelog Format
 
 This project follows [Semantic Versioning](https://semver.org/):
