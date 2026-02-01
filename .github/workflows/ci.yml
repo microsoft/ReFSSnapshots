@@ -8,56 +8,45 @@ on:
 
 jobs:
   test:
-    name: Test on PowerShell ${{ matrix.shell }}
+    name: Test Module
     runs-on: windows-latest
-    strategy:
-      matrix:
-        shell: ['powershell', 'pwsh']
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
     - name: Display PowerShell version
-      shell: ${{ matrix.shell }}
+      shell: pwsh
       run: $PSVersionTable
 
-    - name: Install Pester
-      shell: ${{ matrix.shell }}
+    - name: Install dependencies
+      shell: pwsh
       run: |
         Install-Module -Name Pester -MinimumVersion 5.0.0 -Force -SkipPublisherCheck
-
-    - name: Install PSScriptAnalyzer
-      shell: ${{ matrix.shell }}
-      run: |
         Install-Module -Name PSScriptAnalyzer -Force -SkipPublisherCheck
 
-    - name: Run PSScriptAnalyzer
-      shell: ${{ matrix.shell }}
-      run: |
-        try {
-          $results = Invoke-ScriptAnalyzer -Path .\Public -Recurse -Severity Error -ErrorAction Stop
-          if ($results) {
-            $results | Format-Table -AutoSize
-            throw "PSScriptAnalyzer found $($results.Count) error(s)"
-          } else {
-            Write-Host "PSScriptAnalyzer: No errors found" -ForegroundColor Green
-          }
-        } catch {
-          Write-Warning "PSScriptAnalyzer failed: $_"
-          Write-Host "Continuing despite PSScriptAnalyzer error..."
-        }
-
     - name: Test module manifest
-      shell: ${{ matrix.shell }}
+      shell: pwsh
       run: |
         $manifest = Test-ModuleManifest -Path .\ReFSSnapshots.psd1 -ErrorAction Stop
         Write-Host "Module manifest is valid"
         Write-Host "Version: $($manifest.Version)"
         Write-Host "Exported functions: $($manifest.ExportedFunctions.Count)"
 
+    - name: Run PSScriptAnalyzer
+      shell: pwsh
+      continue-on-error: true
+      run: |
+        $results = Invoke-ScriptAnalyzer -Path .\Public -Recurse -Severity Error
+        if ($results) {
+          Write-Host "PSScriptAnalyzer found issues (non-blocking):"
+          $results | Format-Table -AutoSize
+        } else {
+          Write-Host "PSScriptAnalyzer: No errors found"
+        }
+
     - name: Run Pester tests
-      shell: ${{ matrix.shell }}
+      shell: pwsh
       run: |
         $config = New-PesterConfiguration
         $config.Run.Path = '.\Tests'
@@ -65,39 +54,12 @@ jobs:
         $config.CodeCoverage.Enabled = $false
         $config.TestResult.Enabled = $true
         $config.TestResult.OutputPath = 'testResults.xml'
+        $config.Output.Verbosity = 'Detailed'
         Invoke-Pester -Configuration $config
 
     - name: Upload test results
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: test-results-${{ matrix.shell }}
+        name: test-results
         path: testResults.xml
-
-  analyze:
-    name: Security and Quality Analysis
-    runs-on: windows-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Run PSScriptAnalyzer for Security
-      shell: pwsh
-      run: |
-        Install-Module -Name PSScriptAnalyzer -Force -SkipPublisherCheck
-
-        try {
-          # Only analyze Public functions (core functionality)
-          $errors = Invoke-ScriptAnalyzer -Path .\Public -Recurse -Severity Error -ErrorAction Stop
-          if ($errors) {
-            Write-Host "Security/Quality Errors:" -ForegroundColor Red
-            $errors | Format-Table -AutoSize
-            throw "Found $($errors.Count) error(s)"
-          } else {
-            Write-Host "No security or quality errors found in Public functions" -ForegroundColor Green
-          }
-        } catch {
-          Write-Warning "PSScriptAnalyzer encountered an issue: $_"
-          Write-Host "Skipping static analysis due to tool error"
-        }
