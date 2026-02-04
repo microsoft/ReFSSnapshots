@@ -97,7 +97,7 @@ function Restore-RefsSnapshot {
         }
 
         # Strip stream syntax for ReFS validation
-        $filePath = $resolvedPath.Path -replace ':.*$', ''
+        $filePath = $resolvedPath.Path -replace ':[^\\]+$', ''
 
         # Validate ReFS volume
         if (-not (Test-RefsVolume -Path $filePath)) {
