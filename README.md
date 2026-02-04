@@ -8,6 +8,7 @@ PowerShell module for managing ReFS (Resilient File System) stream snapshots on 
 - **List snapshots**: Query existing snapshots with wildcard support
 - **Delete snapshots**: Remove snapshots with confirmation safeguards
 - **Compare snapshots**: Track changes between snapshot and current state
+- **Restore snapshots**: Revert files to previous snapshot state with safety features
 - **Schedule automation**: Automated snapshots via Windows Task Scheduler
 - **Retention policies**: Automatic cleanup of old snapshots
 - **Pipeline support**: Full pipeline integration for bulk operations
@@ -56,6 +57,9 @@ Get-RefsSnapshot -Path D:\Data\database.dat
 
 # Compare with current state
 Compare-RefsSnapshot -Path D:\Data\database.dat -Name "BeforeUpdate"
+
+# Restore from snapshot
+Restore-RefsSnapshot -Path D:\Data\database.dat -Name "BeforeUpdate" -Force
 
 # Delete a snapshot
 Remove-RefsSnapshot -Path D:\Data\database.dat -Name "BeforeUpdate" -Force
@@ -148,6 +152,47 @@ $changes = Compare-RefsSnapshot -Path D:\Data\file.dat -Name "Baseline"
 $totalBytes = ($changes | Measure-Object -Property Length -Sum).Sum
 Write-Host "Total bytes changed: $totalBytes"
 ```
+
+### Restore-RefsSnapshot
+
+Restores a file to a previous snapshot state.
+
+```powershell
+Restore-RefsSnapshot -Path <String> -Name <String> [-Force] [-PassThru] [-CreateBackup] [-PreserveAttributes] [-WhatIf] [-Confirm]
+```
+
+**Examples:**
+
+```powershell
+# Restore with confirmation
+Restore-RefsSnapshot -Path D:\Data\file.dat -Name "BeforeUpdate"
+
+# Restore without confirmation
+Restore-RefsSnapshot -Path D:\Data\file.dat -Name "BeforeUpdate" -Force
+
+# Restore with automatic backup of current state
+Restore-RefsSnapshot -Path D:\Data\file.dat -Name "LastGood" -CreateBackup -Force
+
+# Restore and preserve file attributes (creation time, etc.)
+Restore-RefsSnapshot -Path D:\Data\file.dat -Name "Stable" -PreserveAttributes -Force
+
+# Pipeline restore with result object
+Get-RefsSnapshot -Path D:\Data\file.dat | Where-Object SnapshotName -eq "Baseline" |
+    Restore-RefsSnapshot -Force -PassThru
+```
+
+**Safety Features:**
+
+- **CreateBackup**: Creates a timestamped backup (.bak.yyyyMMddHHmmss) before restoring
+- **PreserveAttributes**: Maintains original file creation time and attributes after restore
+- **Force**: Bypasses confirmation prompts (use with caution)
+- **PassThru**: Returns a FileInfo object for the restored file
+
+**Limitations:**
+
+- Loads entire file into memory (may be slow for very large files)
+- Cannot restore if file is locked by another process
+- Atomic replacement has a brief gap between delete and rename operations
 
 ### Register-RefsSnapshotSchedule
 
@@ -307,7 +352,8 @@ ReFSSnapshots/
 │   ├── New-RefsSnapshot.ps1
 │   ├── Get-RefsSnapshot.ps1
 │   ├── Remove-RefsSnapshot.ps1
-│   └── Compare-RefsSnapshot.ps1
+│   ├── Compare-RefsSnapshot.ps1
+│   └── Restore-RefsSnapshot.ps1
 ├── Private/                     # Internal helpers
 │   ├── Invoke-RefsUtilStreamSnapshot.ps1
 │   ├── Test-RefsVolume.ps1

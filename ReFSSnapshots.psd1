@@ -3,7 +3,7 @@
     RootModule = 'ReFSSnapshots.psm1'
 
     # Version number of this module
-    ModuleVersion = '1.1.0'
+    ModuleVersion = '1.2.0'
 
     # Supported PSEditions
     CompatiblePSEditions = @('Desktop', 'Core')
@@ -47,6 +47,7 @@
         'Get-RefsSnapshot',
         'Remove-RefsSnapshot',
         'Compare-RefsSnapshot',
+        'Restore-RefsSnapshot',
         'Register-RefsSnapshotSchedule',
         'Get-RefsSnapshotSchedule',
         'Update-RefsSnapshotSchedule',
@@ -76,6 +77,14 @@
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
+## Version 1.2.0
+- NEW: Snapshot restore functionality
+- Restore-RefsSnapshot: Revert files to previous snapshot state
+- Safety features: CreateBackup option, PreserveAttributes support
+- Atomic file replacement for reliability
+- Full pipeline support with PassThru option
+- Completes snapshot lifecycle: Create → List → Compare → Restore → Delete
+
 ## Version 1.1.0
 - NEW: Scheduled snapshot automation via Windows Task Scheduler
 - Register-RefsSnapshotSchedule: Create automated snapshot schedules

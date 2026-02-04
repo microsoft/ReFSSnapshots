@@ -28,6 +28,10 @@ Describe "Module: ReFSSnapshots" {
             Get-Command Compare-RefsSnapshot -Module ReFSSnapshots | Should -Not -BeNullOrEmpty
         }
 
+        It "Should export Restore-RefsSnapshot cmdlet" {
+            Get-Command Restore-RefsSnapshot -Module ReFSSnapshots | Should -Not -BeNullOrEmpty
+        }
+
         It "Should export Register-RefsSnapshotSchedule cmdlet" {
             Get-Command Register-RefsSnapshotSchedule -Module ReFSSnapshots | Should -Not -BeNullOrEmpty
         }
@@ -316,6 +320,146 @@ Describe "Compare-RefsSnapshot" {
 
         It "Should output RefsSnapshotDelta type" {
             (Get-Command Compare-RefsSnapshot).OutputType.Name | Should -Contain 'RefsSnapshotDelta'
+        }
+    }
+}
+
+Describe "Restore-RefsSnapshot" {
+    Context "Parameter Validation" {
+        It "Should have mandatory Path parameter" {
+            (Get-Command Restore-RefsSnapshot).Parameters['Path'].Attributes.Mandatory | Should -Be $true
+        }
+
+        It "Should have mandatory Name parameter" {
+            (Get-Command Restore-RefsSnapshot).Parameters['Name'].Attributes.Mandatory | Should -Be $true
+        }
+
+        It "Should support ShouldProcess with High impact" {
+            $cmd = Get-Command Restore-RefsSnapshot
+            $cmd.Parameters.ContainsKey('WhatIf') | Should -Be $true
+            $cmd.Parameters.ContainsKey('Confirm') | Should -Be $true
+        }
+
+        It "Should have Force parameter" {
+            (Get-Command Restore-RefsSnapshot).Parameters.ContainsKey('Force') | Should -Be $true
+        }
+
+        It "Should have PassThru parameter" {
+            $param = (Get-Command Restore-RefsSnapshot).Parameters['PassThru']
+            $param.SwitchParameter | Should -Be $true
+        }
+
+        It "Should have CreateBackup parameter" {
+            $param = (Get-Command Restore-RefsSnapshot).Parameters['CreateBackup']
+            $param.SwitchParameter | Should -Be $true
+        }
+
+        It "Should have PreserveAttributes parameter" {
+            $param = (Get-Command Restore-RefsSnapshot).Parameters['PreserveAttributes']
+            $param.SwitchParameter | Should -Be $true
+        }
+
+        It "Should support pipeline input for Path" {
+            (Get-Command Restore-RefsSnapshot).Parameters['Path'].Attributes.ValueFromPipeline | Should -Be $true
+        }
+
+        It "Should support pipeline input for Name by property" {
+            (Get-Command Restore-RefsSnapshot).Parameters['Name'].Attributes.ValueFromPipelineByPropertyName | Should -Be $true
+        }
+
+        It "Should output FileInfo type when PassThru is used" {
+            (Get-Command Restore-RefsSnapshot).OutputType.Name | Should -Contain 'System.IO.FileInfo'
+        }
+
+        It "Should have SnapshotName alias for Name parameter" {
+            (Get-Command Restore-RefsSnapshot).Parameters['Name'].Aliases | Should -Contain 'SnapshotName'
+        }
+
+        It "Should have FilePath alias for Path parameter" {
+            (Get-Command Restore-RefsSnapshot).Parameters['Path'].Aliases | Should -Contain 'FilePath'
+        }
+    }
+
+    Context "Safety Features" -Skip {
+        # These tests require actual ReFS volume - skip in CI
+        BeforeAll {
+            $script:TestRefsPath = "R:\TestData"  # Adjust to actual ReFS volume
+
+            if (Test-Path $script:TestRefsPath) {
+                $script:TestFile = Join-Path $script:TestRefsPath "restore_test_$(Get-Random).txt"
+                "Original content" | Out-File $script:TestFile
+                New-RefsSnapshot -Path $script:TestFile -Name "TestRestore"
+                "Modified content" | Out-File $script:TestFile
+            }
+        }
+
+        It "Should create backup when -CreateBackup is specified" {
+            if ($script:TestFile) {
+                Restore-RefsSnapshot -Path $script:TestFile -Name "TestRestore" -CreateBackup -Force
+
+                # Check for backup file
+                $backupFiles = Get-ChildItem "$($script:TestFile).bak.*" -ErrorAction SilentlyContinue
+                $backupFiles | Should -Not -BeNullOrEmpty
+                $backupFiles[0] | Should -Exist
+            }
+        }
+
+        It "Should restore file contents from snapshot" {
+            if ($script:TestFile) {
+                Restore-RefsSnapshot -Path $script:TestFile -Name "TestRestore" -Force
+
+                # Verify content was restored
+                $content = Get-Content $script:TestFile -Raw
+                $content | Should -Match "Original content"
+            }
+        }
+
+        It "Should preserve attributes when -PreserveAttributes is specified" {
+            if ($script:TestFile) {
+                # Set specific attributes
+                $file = Get-Item $script:TestFile
+                $originalCreationTime = $file.CreationTime
+
+                # Wait a bit to ensure timestamp would change
+                Start-Sleep -Milliseconds 100
+
+                # Restore with PreserveAttributes
+                Restore-RefsSnapshot -Path $script:TestFile -Name "TestRestore" -PreserveAttributes -Force
+
+                # Check that creation time was preserved
+                $restoredFile = Get-Item $script:TestFile
+                $restoredFile.CreationTime | Should -Be $originalCreationTime
+            }
+        }
+
+        It "Should return FileInfo when -PassThru is specified" {
+            if ($script:TestFile) {
+                $result = Restore-RefsSnapshot -Path $script:TestFile -Name "TestRestore" -PassThru -Force
+                $result | Should -Not -BeNullOrEmpty
+                $result.GetType().FullName | Should -Be 'System.IO.FileInfo'
+            }
+        }
+
+        It "Should support WhatIf without making changes" {
+            if ($script:TestFile) {
+                "Modified content" | Out-File $script:TestFile
+
+                Restore-RefsSnapshot -Path $script:TestFile -Name "TestRestore" -WhatIf
+
+                # Content should remain unchanged
+                $content = Get-Content $script:TestFile -Raw
+                $content | Should -Match "Modified content"
+            }
+        }
+
+        AfterAll {
+            if ($script:TestFile -and (Test-Path $script:TestFile)) {
+                Remove-RefsSnapshot -Path $script:TestFile -Name "TestRestore" -Force -ErrorAction SilentlyContinue
+                Remove-Item $script:TestFile -Force -ErrorAction SilentlyContinue
+
+                # Cleanup backup files
+                Get-ChildItem "$($script:TestFile).bak.*" -ErrorAction SilentlyContinue | Remove-Item -Force
+            }
         }
     }
 }

@@ -1,5 +1,80 @@
 # What's New
 
+## Version 1.2.0 (February 2026)
+
+Snapshot restore functionality release - completes the snapshot lifecycle.
+
+### New Features
+
+#### Snapshot Restore
+- **Restore-RefsSnapshot**: Revert files to previous snapshot state
+  - Full file restoration from ReFS stream snapshots
+  - Direct read from snapshot named streams
+  - Atomic file replacement for reliability
+  - Full `ShouldProcess` support with `ConfirmImpact = 'High'`
+  - Pipeline support for batch operations
+
+#### Safety Features
+- **CreateBackup**: Automatically create timestamped backup (.bak.yyyyMMddHHmmss) before restoring
+  - Preserves current file state before destructive operations
+  - Timestamped for easy identification
+  - Allows recovery if restore fails or was unintended
+
+- **PreserveAttributes**: Maintain original file metadata after restore
+  - Preserves creation time
+  - Preserves last write time
+  - Preserves file attributes (ReadOnly, Hidden, etc.)
+  - Useful for maintaining audit trails
+
+- **PassThru**: Return FileInfo object for restored file
+  - Enables further pipeline processing
+  - Provides immediate verification of restore operation
+  - Compatible with standard PowerShell file cmdlets
+
+#### Reliability
+- **Atomic file replacement**: Minimize risk during restore operations
+- **Snapshot verification**: Validates snapshot exists before attempting restore
+- **ReFS volume validation**: Ensures operation on supported file system
+- **Comprehensive error handling**: Clear error messages for common failure scenarios
+
+### Examples
+- Updated `BasicUsage.ps1` with restore examples
+- New `RestoreScenarios.ps1` demonstrating restore workflows
+- Pipeline restore patterns
+- Backup and recovery scenarios
+
+### Completed Snapshot Lifecycle
+The module now supports the complete snapshot workflow:
+1. **Create** → `New-RefsSnapshot`
+2. **List** → `Get-RefsSnapshot`
+3. **Compare** → `Compare-RefsSnapshot`
+4. **Restore** → `Restore-RefsSnapshot` ✨ NEW
+5. **Delete** → `Remove-RefsSnapshot`
+
+### Technical Details
+
+**Implementation:** Direct .NET file I/O for snapshot stream access
+- `[System.IO.File]::ReadAllBytes()` for snapshot data retrieval
+- Temporary file creation for atomic replacement
+- Stream path format: `${FilePath}:${SnapshotName}`
+
+**Known Limitations:**
+- Loads entire file into memory (may be slow for files >1GB)
+- Cannot restore if file is locked by another process
+- Atomic replacement has brief gap between delete and rename operations
+- Snapshot stream syntax not yet tested for complex stream names
+
+**Performance Considerations:**
+- Memory usage proportional to file size
+- Full-file restore (not delta-based)
+- Future optimization: streaming with buffered reads for large files
+
+### Breaking Changes
+
+None - fully backwards compatible with v1.1.0
+
+---
+
 ## Version 1.1.0 (January 2026)
 
 Scheduled snapshot automation feature release.
@@ -139,4 +214,4 @@ This project follows [Semantic Versioning](https://semver.org/):
 
 ---
 
-*Last Updated: January 29, 2026*
+*Last Updated: February 3, 2026*
