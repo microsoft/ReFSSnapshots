@@ -52,3 +52,20 @@ Get-ChildItem D:\Data\*.dat | ForEach-Object {
 $fileWithStream = "D:\Data\file.txt:CustomStream"
 New-RefsSnapshot -Path $fileWithStream -Name "StreamBackup"
 Get-RefsSnapshot -Path $fileWithStream
+
+# Example 8: Export a snapshot to a standalone file
+Export-RefsSnapshot -Path $file -Name "BeforeUpdate_20240129_120000" -Destination "D:\Archive\database_backup.dat"
+
+# Example 9: Export with preserved attributes and timestamps
+Export-RefsSnapshot -Path $file -Name "BeforeUpdate_20240129_120000" `
+    -Destination "D:\Archive\database_v1.dat" -PreserveAttributes
+
+# Example 10: Export all snapshots matching a pattern
+Get-RefsSnapshot -Path $file -Name "BeforeUpdate_*" | ForEach-Object {
+    $destPath = "D:\Archive\database_$($_.SnapshotName).dat"
+    Export-RefsSnapshot -Path $_.FilePath -Name $_.SnapshotName -Destination $destPath
+}
+
+# Example 11: Export and overwrite existing file
+Export-RefsSnapshot -Path $file -Name "BeforeUpdate_20240129_120000" `
+    -Destination "D:\Archive\database_backup.dat" -Force

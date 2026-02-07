@@ -32,6 +32,10 @@ Describe "Module: ReFSSnapshots" {
             Get-Command Restore-RefsSnapshot -Module ReFSSnapshots | Should -Not -BeNullOrEmpty
         }
 
+        It "Should export Export-RefsSnapshot cmdlet" {
+            Get-Command Export-RefsSnapshot -Module ReFSSnapshots | Should -Not -BeNullOrEmpty
+        }
+
         It "Should export Register-RefsSnapshotSchedule cmdlet" {
             Get-Command Register-RefsSnapshotSchedule -Module ReFSSnapshots | Should -Not -BeNullOrEmpty
         }
@@ -46,6 +50,10 @@ Describe "Module: ReFSSnapshots" {
 
         It "Should export Unregister-RefsSnapshotSchedule cmdlet" {
             Get-Command Unregister-RefsSnapshotSchedule -Module ReFSSnapshots | Should -Not -BeNullOrEmpty
+        }
+
+        It "Should export Export-RefsSnapshot cmdlet" {
+            Get-Command Export-RefsSnapshot -Module ReFSSnapshots | Should -Not -BeNullOrEmpty
         }
     }
 }
@@ -460,6 +468,57 @@ Describe "Restore-RefsSnapshot" {
                 # Cleanup backup files
                 Get-ChildItem "$($script:TestFile).bak.*" -ErrorAction SilentlyContinue | Remove-Item -Force
             }
+        }
+    }
+}
+
+Describe "Export-RefsSnapshot" {
+    Context "Parameter Validation" {
+        It "Should have mandatory Path parameter" {
+            (Get-Command Export-RefsSnapshot).Parameters['Path'].Attributes.Mandatory | Should -Be $true
+        }
+
+        It "Should have mandatory Name parameter" {
+            (Get-Command Export-RefsSnapshot).Parameters['Name'].Attributes.Mandatory | Should -Be $true
+        }
+
+        It "Should have mandatory Destination parameter" {
+            (Get-Command Export-RefsSnapshot).Parameters['Destination'].Attributes.Mandatory | Should -Be $true
+        }
+
+        It "Should support ShouldProcess with Low impact" {
+            $cmd = Get-Command Export-RefsSnapshot
+            $cmd.Parameters.ContainsKey('WhatIf') | Should -Be $true
+            $cmd.Parameters.ContainsKey('Confirm') | Should -Be $true
+        }
+
+        It "Should have PreserveAttributes switch parameter" {
+            $param = (Get-Command Export-RefsSnapshot).Parameters['PreserveAttributes']
+            $param.SwitchParameter | Should -Be $true
+        }
+
+        It "Should have Force parameter" {
+            (Get-Command Export-RefsSnapshot).Parameters.ContainsKey('Force') | Should -Be $true
+        }
+
+        It "Should support pipeline input for Path" {
+            (Get-Command Export-RefsSnapshot).Parameters['Path'].Attributes.ValueFromPipeline | Should -Be $true
+        }
+
+        It "Should support pipeline input for Name from property" {
+            (Get-Command Export-RefsSnapshot).Parameters['Name'].Attributes.ValueFromPipelineByPropertyName | Should -Be $true
+        }
+
+        It "Should output System.IO.FileInfo type" {
+            (Get-Command Export-RefsSnapshot).OutputType.Name | Should -Contain 'System.IO.FileInfo'
+        }
+
+        It "Should have FilePath alias for Path parameter" {
+            (Get-Command Export-RefsSnapshot).Parameters['Path'].Aliases | Should -Contain 'FilePath'
+        }
+
+        It "Should have SnapshotName alias for Name parameter" {
+            (Get-Command Export-RefsSnapshot).Parameters['Name'].Aliases | Should -Contain 'SnapshotName'
         }
     }
 }

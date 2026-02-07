@@ -48,6 +48,7 @@
         'Remove-RefsSnapshot',
         'Compare-RefsSnapshot',
         'Restore-RefsSnapshot',
+        'Export-RefsSnapshot',
         'Register-RefsSnapshotSchedule',
         'Get-RefsSnapshotSchedule',
         'Update-RefsSnapshotSchedule',
