@@ -1,5 +1,8 @@
 # ReFSSnapshots PowerShell Module
 
+> **⚠️ Experimental Preview**
+> This project is in early development and should be considered experimental. The API and functionality may change as we gather feedback and refine the implementation. Use in production environments at your own risk. We welcome feedback, bug reports, and contributions via [GitHub Issues](https://github.com/microsoft/ReFSSnapshots/issues).
+
 PowerShell module for managing ReFS (Resilient File System) stream snapshots on Windows. Provides easy-to-use cmdlets that wrap the native `refsutil.exe streamsnapshot` functionality with proper PowerShell semantics, pipeline support, and error handling.
 
 ## Features
