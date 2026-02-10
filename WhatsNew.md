@@ -1,5 +1,72 @@
 # What's New
 
+## Version 1.3.0 (February 2026)
+
+Snapshot export functionality - enables archiving snapshots to any storage medium.
+
+### New Features
+
+#### Snapshot Export
+- **Export-RefsSnapshot**: Extract snapshots to standalone files
+  - Export snapshot data from alternate data streams to primary streams
+  - Non-destructive operation preserving original file and snapshot
+  - Support for exporting to any volume type (NTFS, FAT32, network shares, etc.)
+  - Full `ShouldProcess` support with `ConfirmImpact = 'Medium'`
+  - Pipeline support for batch export operations
+
+#### Export Options
+- **PreserveAttributes**: Maintain original file metadata during export
+  - Preserves creation time from source file
+  - Preserves last write time
+  - Preserves last access time
+  - Useful for maintaining accurate timestamps in archives
+
+- **Force**: Overwrite existing destination files without prompting
+  - Bypasses confirmation prompts for automated scenarios
+  - Enables scripted backup workflows
+  - Compatible with pipeline operations
+
+#### Use Cases
+- **Archive snapshots**: Copy snapshots to external storage or network shares
+- **Cross-volume backup**: Transfer snapshot data to non-ReFS volumes
+- **Offline backup**: Create standalone backup files for archival
+- **Analysis**: Export snapshots for comparison or forensic analysis
+- **Migration**: Move snapshot data between systems
+
+### Examples
+- Export single snapshot to standalone file
+- Batch export with pipeline operations
+- Archive snapshots to network storage
+- Export with preserved file attributes
+
+### Technical Details
+
+**Implementation:** Stream-to-file extraction using .NET I/O
+- `Get-Content -Stream` for reading snapshot alternate data stream
+- `[System.IO.File]::WriteAllBytes()` for writing primary stream
+- Automatic directory creation for destination paths
+- Stream path format: `${FilePath}:${SnapshotName}`
+
+**Performance Considerations:**
+- Reads entire snapshot into memory before writing
+- Performance scales with snapshot size
+- Suitable for snapshots up to several GB
+- Network storage may impact export speed
+
+### Pipeline Integration
+Export integrates seamlessly with existing cmdlets:
+```powershell
+# Export all snapshots matching a pattern
+Get-RefsSnapshot -Path D:\Data\file.dat -Name "Daily_*" |
+    ForEach-Object { Export-RefsSnapshot -Path $_.FilePath -Name $_.SnapshotName -Destination "\\nas\backups\$($_.SnapshotName).dat" }
+```
+
+### Breaking Changes
+
+None - fully backwards compatible with v1.2.0
+
+---
+
 ## Version 1.2.0 (February 2026)
 
 Snapshot restore functionality release - completes the snapshot lifecycle.
@@ -43,13 +110,15 @@ Snapshot restore functionality release - completes the snapshot lifecycle.
 - Pipeline restore patterns
 - Backup and recovery scenarios
 
-### Completed Snapshot Lifecycle
+### Snapshot Lifecycle (as of v1.2.0)
 The module now supports the complete snapshot workflow:
 1. **Create** → `New-RefsSnapshot`
 2. **List** → `Get-RefsSnapshot`
 3. **Compare** → `Compare-RefsSnapshot`
-4. **Restore** → `Restore-RefsSnapshot` ✨ NEW
+4. **Restore** → `Restore-RefsSnapshot` ✨ NEW in v1.2.0
 5. **Delete** → `Remove-RefsSnapshot`
+
+(Export functionality added in v1.3.0)
 
 ### Technical Details
 
@@ -214,4 +283,4 @@ This project follows [Semantic Versioning](https://semver.org/):
 
 ---
 
-*Last Updated: February 3, 2026*
+*Last Updated: February 10, 2026*
