@@ -12,6 +12,7 @@ PowerShell module for managing ReFS (Resilient File System) stream snapshots on 
 - **Delete snapshots**: Remove snapshots with confirmation safeguards
 - **Compare snapshots**: Track changes between snapshot and current state
 - **Restore snapshots**: Revert files to previous snapshot state with safety features
+- **Export snapshots**: Extract snapshots to standalone files on any volume
 - **Schedule automation**: Automated snapshots via Windows Task Scheduler
 - **Retention policies**: Automatic cleanup of old snapshots
 - **Pipeline support**: Full pipeline integration for bulk operations
@@ -197,6 +198,46 @@ Get-RefsSnapshot -Path D:\Data\file.dat | Where-Object SnapshotName -eq "Baselin
 - Cannot restore if file is locked by another process
 - Atomic replacement has a brief gap between delete and rename operations
 
+### Export-RefsSnapshot
+
+Exports a snapshot from alternate data streams into a standalone file.
+
+```powershell
+Export-RefsSnapshot -Path <String> -Name <String> -Destination <String> [-PreserveAttributes] [-Force] [-WhatIf] [-Confirm]
+```
+
+**Examples:**
+
+```powershell
+# Export a snapshot to a standalone file
+Export-RefsSnapshot -Path D:\Data\database.dat -Name "BeforeUpdate" -Destination D:\Backups\database_snapshot.dat
+
+# Export with preserved file attributes (timestamps, metadata)
+Export-RefsSnapshot -Path D:\Data\database.dat -Name "BeforeUpdate" -Destination D:\Backups\database_snapshot.dat -PreserveAttributes
+
+# Force overwrite existing destination file
+Export-RefsSnapshot -Path D:\Data\database.dat -Name "Stable" -Destination D:\Backups\database.dat -Force
+
+# Pipeline export of multiple snapshots
+Get-RefsSnapshot -Path D:\Data\database.dat -Name "Daily_*" | ForEach-Object {
+    Export-RefsSnapshot -Path $_.FilePath -Name $_.SnapshotName -Destination "D:\Backups\$($_.SnapshotName).dat"
+}
+```
+
+**Features:**
+
+- **Non-destructive**: Preserves the original file and snapshot intact
+- **PreserveAttributes**: Optionally copies creation time, modification time, and access time from source
+- **Force**: Overwrites destination without prompting if it exists
+- **Pipeline support**: Accepts pipeline input from Get-RefsSnapshot for batch operations
+
+**Use Cases:**
+
+- Archive snapshots to external storage or network shares
+- Transfer snapshot data to non-ReFS volumes
+- Create offline backups of snapshot data
+- Export for analysis or comparison outside the original system
+
 ### Register-RefsSnapshotSchedule
 
 Creates automated snapshot schedules using Windows Task Scheduler.
@@ -356,7 +397,8 @@ ReFSSnapshots/
 │   ├── Get-RefsSnapshot.ps1
 │   ├── Remove-RefsSnapshot.ps1
 │   ├── Compare-RefsSnapshot.ps1
-│   └── Restore-RefsSnapshot.ps1
+│   ├── Restore-RefsSnapshot.ps1
+│   └── Export-RefsSnapshot.ps1
 ├── Private/                     # Internal helpers
 │   ├── Invoke-RefsUtilStreamSnapshot.ps1
 │   ├── Test-RefsVolume.ps1
